@@ -1,16 +1,11 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "Dockerfile"
-buildTarget = "railway"
 
 [deploy]
 healthcheckPath = "/"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
-
-[[services]]
-name = "magg"
 
 [services.variables]
 MAGG_LOG_LEVEL = "INFO"
@@ -22,9 +17,3 @@ MAGG_SELF_PREFIX = "magg"
 MAGG_PREFIX_SEP = "_"
 PYTHONDONTWRITEBYTECODE = "1"
 PYTHONUNBUFFERED = "1"
-
-# Railway will automatically set these:
-# PORT (Railway assigns this)
-# RAILWAY_ENVIRONMENT
-# RAILWAY_SERVICE_NAME
-# RAILWAY_PROJECT_NAME

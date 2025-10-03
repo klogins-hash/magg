@@ -27,10 +27,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     VIRTUAL_ENV="${HOME}/.venv" \
     PS1="(${PACKAGE}) \h:\w\$ "
 
-# Activating the venv through bash the "normal" way:
-# ENV BASH_ENV="${HOME}/.bashrc"  # enables .bashrc to be sourced in non-interactive shells e.g. `bash -c`
-# RUN echo "source ~/.venv/bin/activate" >> ${HOME}/.bashrc
-
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ADD --chown=${USER}:${USER} .python-version ./
@@ -41,8 +37,8 @@ RUN if [ -n "${PYTHON_VERSION}" ]; then \
 
 FROM venv AS proj
 
-LABEL org.opencontainers.image.source=https://github.com/sitbon/magg \
-      org.opencontainers.image.description="Magg - The Model Context Protocol (MCP) Aggregator (Project)" \
+LABEL org.opencontainers.image.source=https://github.com/klogins-hash/magg \
+      org.opencontainers.image.description="Magg - The Model Context Protocol (MCP) Aggregator" \
       org.opencontainers.image.licenses=AGPLv3 \
       org.opencontainers.image.authors="Phillip Sitbon <phillip.sitbon@gmail.com>"
 
@@ -58,7 +54,6 @@ RUN --mount=type=cache,uid=${UID},gid=${UID},target=${HOME}/.cache/uv \
     uv sync --locked --no-install-project --no-dev
 
 # Fix for Python 3.12 extension suffix mismatch on Alpine
-# Python 3.12 expects linux-gnu but we have linux-musl wheels
 RUN if [ "${PYTHON_VERSION}" = "3.12" ]; then \
         find .venv/lib -name "*.cpython-*-x86_64-linux-musl.so" -exec sh -c \
             'ln -sf "$(basename "$1")" "$(dirname "$1")/$(echo "$(basename "$1")" | sed "s/-musl\.so$/-gnu.so/")"' _ {} \; ; \
@@ -73,97 +68,11 @@ RUN --mount=type=cache,uid=${UID},gid=${UID},target=${HOME}/.cache/uv \
 RUN mkdir -p .magg && \
     chmod 755 .magg
 
-EXPOSE 8000
-
-ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["magg", "serve", "--http", "--host", "0.0.0.0", "--port", "8000"]
-
-
-FROM proj AS pre
-
-LABEL org.opencontainers.image.source=https://github.com/sitbon/magg \
-      org.opencontainers.image.description="Magg - The Model Context Protocol (MCP) Aggregator (Staging)" \
-      org.opencontainers.image.licenses=AGPLv3 \
-      org.opencontainers.image.authors="Phillip Sitbon <phillip.sitbon@gmail.com>"
-
-ENV MAGG_LOG_LEVEL=INFO
-
-USER root
-
-RUN chown -R root:${USER} ${HOME}/.venv ${HOME}/${PACKAGE} && \
-    chmod -R a-w,a+rX ${HOME}/.venv ${HOME}/${PACKAGE} && \
-    chown -R ${USER}:${USER} ${HOME}/.magg && \
-    chmod -R u+rwX ${HOME}/.magg && \
-    if [ "${MAGG_READ_ONLY}" = "true" ] || [ "${MAGG_READ_ONLY}" = "1" ] || [ "${MAGG_READ_ONLY}" = "yes" ]; then \
-        chmod -R a-w ${HOME}/.magg; \
-    fi
-    # Note: The above check does not work with volume mounts (e.g. compose), so the real enforcement
-    #       is done in the application code.
-
-USER ${USER}
-
-FROM pre AS pro
-
-LABEL org.opencontainers.image.source=https://github.com/sitbon/magg \
-      org.opencontainers.image.description="Magg - The Model Context Protocol (MCP) Aggregator" \
-      org.opencontainers.image.licenses=AGPLv3 \
-      org.opencontainers.image.authors="Phillip Sitbon <phillip.sitbon@gmail.com>"
-
-ENV MAGG_LOG_LEVEL=WARNING
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD ["magg", "status"]
-
-FROM proj AS dev
-
-LABEL org.opencontainers.image.source=https://github.com/sitbon/magg \
-      org.opencontainers.image.description="Magg - The Model Context Protocol (MCP) Aggregator (Development)" \
-      org.opencontainers.image.licenses=AGPLv3 \
-      org.opencontainers.image.authors="Phillip Sitbon <phillip.sitbon@gmail.com>"
-
-ENV MAGG_LOG_LEVEL=DEBUG
-
-ADD --chown=${USER}:${USER} test/ ./test/
-
-RUN --mount=type=cache,uid=1000,gid=1000,target=${HOME}/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --dev
-
-FROM dev AS pkg
-
-LABEL org.opencontainers.image.source=https://github.com/sitbon/magg \
-      org.opencontainers.image.description="Magg - The Model Context Protocol (MCP) Aggregator (Packaging)" \
-      org.opencontainers.image.licenses=AGPLv3 \
-      org.opencontainers.image.authors="Phillip Sitbon <phillip.sitbon@gmail.com>"
-
-RUN --mount=type=cache,uid=${UID},gid=${UID},target=${HOME}/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv build
-
-FROM venv AS user
-
-LABEL org.opencontainers.image.source=https://github.com/sitbon/magg \
-      org.opencontainers.image.description="Magg - The Model Context Protocol (MCP) Aggregator (User Environment)" \
-      org.opencontainers.image.licenses=AGPLv3 \
-      org.opencontainers.image.authors="Phillip Sitbon <phillip.sitbon@gmail.com>"
-
-ENV PS1="(user) \h:\w\$ "
-
-COPY --from=pkg ${HOME}/dist/ ${HOME}/dist/
-
-RUN uv init --no-workspace --no-package --no-readme --no-description --name user && \
-    uv sync && \
-    uv add "magg[dev] @ $(ls -t1 dist/*.whl | head -n 1)"
-
-CMD ["bash"]
-
-# Railway-optimized production stage
-FROM pre AS railway
+# Railway production stage - this is the default target
+FROM proj AS railway
 
 LABEL org.opencontainers.image.source=https://github.com/klogins-hash/magg \
-      org.opencontainers.image.description="Magg - The Model Context Protocol (MCP) Aggregator (Railway)" \
+      org.opencontainers.image.description="Magg - Railway Production" \
       org.opencontainers.image.licenses=AGPLv3 \
       org.opencontainers.image.authors="Phillip Sitbon <phillip.sitbon@gmail.com>"
 
@@ -171,6 +80,15 @@ LABEL org.opencontainers.image.source=https://github.com/klogins-hash/magg \
 ENV MAGG_LOG_LEVEL=INFO \
     MAGG_HOST=0.0.0.0 \
     MAGG_AUTO_RELOAD=true
+
+USER root
+
+RUN chown -R root:${USER} ${HOME}/.venv ${HOME}/${PACKAGE} && \
+    chmod -R a-w,a+rX ${HOME}/.venv ${HOME}/${PACKAGE} && \
+    chown -R ${USER}:${USER} ${HOME}/.magg && \
+    chmod -R u+rwX ${HOME}/.magg
+
+USER ${USER}
 
 # Health check for Railway
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
