@@ -1,6 +1,6 @@
 # Railway Deployment Guide for Magg
 
-This guide explains how to deploy Magg (MCP Aggregator) on Railway using Docker.
+This guide explains how to deploy Magg (MCP Aggregator) on Railway using Python/Nixpacks.
 
 ## Prerequisites
 

@@ -1,7 +1,8 @@
 [build]
-builder = "dockerfile"
+builder = "nixpacks"
 
 [deploy]
+startCommand = "magg serve --http --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
@@ -9,7 +10,7 @@ restartPolicyMaxRetries = 3
 
 [services.variables]
 MAGG_LOG_LEVEL = "INFO"
-MAGG_CONFIG_PATH = "/home/magg/.magg/config.json"
+MAGG_CONFIG_PATH = "/app/.magg/config.json"
 MAGG_READ_ONLY = "false"
 MAGG_AUTO_RELOAD = "true"
 MAGG_HOST = "0.0.0.0"
