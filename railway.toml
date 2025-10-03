@@ -1,0 +1,24 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "magg"
+
+[services.variables]
+MAGG_LOG_LEVEL = "INFO"
+MAGG_CONFIG_PATH = "/app/.magg/config.json"
+MAGG_READ_ONLY = "false"
+MAGG_AUTO_RELOAD = "true"
+PORT = "8000"
+
+# Railway will automatically set these:
+# RAILWAY_ENVIRONMENT
+# RAILWAY_SERVICE_NAME
+# RAILWAY_PROJECT_NAME
