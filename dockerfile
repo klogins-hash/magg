@@ -158,3 +158,27 @@ RUN uv init --no-workspace --no-package --no-readme --no-description --name user
     uv add "magg[dev] @ $(ls -t1 dist/*.whl | head -n 1)"
 
 CMD ["bash"]
+
+# Railway-optimized production stage
+FROM pre AS railway
+
+LABEL org.opencontainers.image.source=https://github.com/klogins-hash/magg \
+      org.opencontainers.image.description="Magg - The Model Context Protocol (MCP) Aggregator (Railway)" \
+      org.opencontainers.image.licenses=AGPLv3 \
+      org.opencontainers.image.authors="Phillip Sitbon <phillip.sitbon@gmail.com>"
+
+# Railway environment defaults
+ENV MAGG_LOG_LEVEL=INFO \
+    MAGG_HOST=0.0.0.0 \
+    MAGG_AUTO_RELOAD=true
+
+# Health check for Railway
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD ["magg", "status"] || exit 1
+
+# Railway automatically sets PORT, use it dynamically
+EXPOSE $PORT
+EXPOSE 8000
+
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["sh", "-c", "magg serve --http --host 0.0.0.0 --port ${PORT:-8000}"]

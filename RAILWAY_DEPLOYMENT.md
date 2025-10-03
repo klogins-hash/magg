@@ -28,8 +28,8 @@ This guide explains how to deploy Magg (MCP Aggregator) on Railway using Docker.
 
 2. **Railway will automatically:**
    - Detect the `railway.toml` configuration
-   - Build using the existing `dockerfile`
-   - Deploy to a public URL
+   - Build using the `Dockerfile` with `railway` target
+   - Deploy to a public URL with proper environment variables
 
 ### Option 2: One-Click Deploy
 
